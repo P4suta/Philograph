@@ -7,6 +7,7 @@ require (
 	github.com/ikawaha/kagome/v2 v2.11.0
 	github.com/stretchr/testify v1.11.1
 	gonum.org/v1/gonum v0.17.0
+	nhooyr.io/websocket v1.8.17
 )
 
 require (
