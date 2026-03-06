@@ -1,5 +1,5 @@
 # Binaries
-philograph
+/philograph
 *.exe
 *.dll
 *.so
@@ -26,7 +26,7 @@ go.work.sum
 Thumbs.db
 
 # Build
-dist/
+/dist/
 
 # Environment
 .env
