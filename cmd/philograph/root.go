@@ -25,7 +25,7 @@ import (
 var (
 	flagPort      int
 	flagLanguage  string
-	flagNoBrowser bool
+	flagSkipBrowser bool
 	flagJSON      bool
 	flagVerbose   bool
 	flagStopwords string
@@ -35,14 +35,14 @@ func newRootCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "philograph [textfile]",
 		Short: "Build and visualize co-occurrence networks from texts",
-		Long:  "Philograph analyzes text files, extracts co-occurrence relationships, and visualizes them as interactive network graphs in the browser.",
+		Long:  "Philograph analyzes text files (.txt, .md, or any UTF-8 text), extracts co-occurrence relationships, and visualizes them as interactive network graphs in the browser.",
 		Args:  cobra.ExactArgs(1),
 		RunE:  runRoot,
 	}
 
 	cmd.Flags().IntVar(&flagPort, "port", 0, "HTTP server port (0=auto)")
 	cmd.Flags().StringVar(&flagLanguage, "language", "auto", "Language: auto, ja, en")
-	cmd.Flags().BoolVar(&flagNoBrowser, "no-browser", false, "Don't open browser automatically")
+	cmd.Flags().BoolVar(&flagSkipBrowser, "skip-browser", false, "Don't open browser automatically")
 	cmd.Flags().BoolVar(&flagJSON, "json", false, "Output result as JSON to stdout and exit")
 	cmd.Flags().BoolVar(&flagVerbose, "verbose", false, "Verbose logging")
 	cmd.Flags().StringVar(&flagStopwords, "stopwords", "", "Comma-separated additional stopwords")
@@ -139,7 +139,7 @@ func runRoot(cmd *cobra.Command, args []string) error {
 	}()
 
 	// Open browser
-	if !flagNoBrowser {
+	if !flagSkipBrowser {
 		openBrowser(url)
 	}
 
