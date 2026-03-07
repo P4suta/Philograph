@@ -87,3 +87,18 @@ button:hover { background: var(--accent-hover); }
     font-size: 0.85rem; list-style: none;
 }
 .adjacent-item:hover { background: var(--bg-tertiary); }
+
+#top-terms-list { padding-left: 1.2rem; margin-bottom: 1rem; }
+.top-term-item {
+    cursor: pointer; padding: 0.15rem 0; font-size: 0.85rem;
+}
+.top-term-item:hover { color: var(--accent); }
+
+.legend-item {
+    display: flex; align-items: center; gap: 0.5rem;
+    font-size: 0.8rem; margin-bottom: 0.3rem;
+}
+.legend-swatch {
+    display: inline-block; width: 14px; height: 14px;
+    border-radius: 3px; flex-shrink: 0;
+}
