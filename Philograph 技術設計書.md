@@ -57,7 +57,7 @@
 
 ### 3.1 機能要件
 
-- **FR-01** UTF-8テキストファイル（.txt）を入力として受け取る
+- **FR-01** UTF-8テキストファイル（.txt）をCLI引数またはブラウザアップロードで入力として受け取る
 - **FR-02** 日本語テキストの形態素解析（品詞タグ付き）を実行する
 - **FR-03** 英語テキストのトークン化（空白分割＋レンマ化）をサポートする
 - **FR-04** テキストの言語を自動検出する（Unicode符号点分布に基づく）
@@ -217,6 +217,8 @@ philograph/
 │   │   │   └── tokenizer.go              // kagomeアダプタ（日本語）
 │   │   ├── whitespace/
 │   │   │   └── tokenizer.go              // 空白分割アダプタ（英語）
+│   │   ├── autotokenizer/
+│   │   │   └── tokenizer.go              // AutoTokenizer（動的言語切替）
 │   │   ├── graph/
 │   │   │   └── analyzer.go               // gonumアダプタ
 │   │   └── export/
@@ -1217,6 +1219,17 @@ type Tokenizer interface {
 }
 ```
 
+#### LanguageAware インターフェース
+
+`LanguageAware` は、Tokenizer に対して処理対象の言語を動的に切り替える能力を付与するオプショナルインターフェースである。`Pipeline.Run` の冒頭で言語検出を行い、Tokenizer がこのインターフェースを実装している場合に `SetLanguage` を呼び出す。これにより、Webアップロードのように毎回異なる言語のテキストが入力される場合でも、単一の Tokenizer インスタンスで対応可能になる。
+
+```go
+// LanguageAware はTokenizerに対して言語を動的に設定可能にするインターフェース。
+type LanguageAware interface {
+    SetLanguage(lang model.Language)
+}
+```
+
 ### 9.2 Exporter
 
 ```go
@@ -1396,7 +1409,52 @@ func (t *Tokenizer) Tokenize(_ context.Context, sentence string) ([]model.Token,
 
 </aside>
 
-### 10.3 gonumグラフ分析アダプタ
+### 10.3 AutoTokenizerアダプタ
+
+AutoTokenizer は、日本語・英語の各 Tokenizer をラップし、`LanguageAware` インターフェースを実装することで、実行時の言語切替を実現するアダプタである。
+
+**設計意図:** CLI引数でテキストファイルを指定する場合は起動時に言語を確定できるが、Webブラウザからのファイルアップロードでは毎回異なる言語のテキストが入力される可能性がある。AutoTokenizer により、Tokenizer の再生成なしに `SetLanguage` 一回の呼び出しで委譲先を切り替えられる。
+
+**Pipeline との連携:**
+
+1. `Pipeline.Run` の冒頭で `model.DetectLanguage(text)` により言語を自動検出
+2. Tokenizer が `LanguageAware` を実装している場合、`SetLanguage` で言語を通知
+3. 以降の `Tokenize` 呼び出しは設定された言語の Tokenizer に委譲される
+
+```go
+package autotokenizer
+
+// AutoTokenizer はテキストの言語に応じて適切なTokenizerに委譲するラッパー。
+type AutoTokenizer struct {
+    mu       sync.RWMutex
+    lang     model.Language
+    japanese port.Tokenizer
+    english  port.Tokenizer
+}
+
+// SetLanguage は使用する言語を設定する（LanguageAwareインターフェース実装）。
+func (a *AutoTokenizer) SetLanguage(lang model.Language) {
+    a.mu.Lock()
+    defer a.mu.Unlock()
+    a.lang = lang
+}
+
+// Tokenize はSetLanguageで設定された言語のTokenizerに委譲する。
+func (a *AutoTokenizer) Tokenize(ctx context.Context, sentence string) ([]model.Token, error) {
+    a.mu.RLock()
+    lang := a.lang
+    a.mu.RUnlock()
+
+    if lang == model.LangJapanese {
+        return a.japanese.Tokenize(ctx, sentence)
+    }
+    return a.english.Tokenize(ctx, sentence)
+}
+```
+
+スレッドセーフ性を `sync.RWMutex` で保証しており、`SetLanguage`（書込）と `Tokenize`（読取）が並行しても安全に動作する。
+
+### 10.4 gonumグラフ分析アダプタ
 
 `gonum/graph` を用いて中心性算出とコミュニティ検出を実装する。
 

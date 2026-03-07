@@ -13,6 +13,7 @@ import (
 	"Philograph/internal/application"
 	"Philograph/internal/domain/model"
 	"Philograph/internal/domain/service"
+	"Philograph/internal/infrastructure/autotokenizer"
 	"Philograph/internal/infrastructure/export"
 	"Philograph/internal/infrastructure/graphanalyzer"
 	kagometok "Philograph/internal/infrastructure/kagome"
@@ -36,7 +37,7 @@ func newRootCmd() *cobra.Command {
 		Use:   "philograph [textfile]",
 		Short: "Build and visualize co-occurrence networks from texts",
 		Long:  "Philograph analyzes text files (.txt, .md, or any UTF-8 text), extracts co-occurrence relationships, and visualizes them as interactive network graphs in the browser.",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE:  runRoot,
 	}
 
@@ -58,27 +59,41 @@ func runRoot(cmd *cobra.Command, args []string) error {
 	}
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level})))
 
-	// Read input file
-	filePath := args[0]
-	data, err := os.ReadFile(filePath)
+	// Create AutoTokenizer (supports both languages)
+	tokenizer, err := createAutoTokenizer()
 	if err != nil {
-		return fmt.Errorf("failed to read file: %w", err)
+		return fmt.Errorf("failed to create tokenizer: %w", err)
 	}
-	text := string(data)
 
-	// Detect language
-	lang := detectLanguageFromFlag(text)
+	// Create analyzer
+	analyzer := graphanalyzer.NewAnalyzer()
 
-	// Build config
+	// Read input file if provided
+	var text string
 	config := model.DefaultConfig()
-	config.Language = lang
 
-	// Add stopwords
-	if lang == model.LangJapanese {
-		config.StopWords = service.DefaultStopWordsJapanese
-	} else {
-		config.StopWords = service.DefaultStopWordsEnglish
+	if len(args) == 1 {
+		filePath := args[0]
+		data, err := os.ReadFile(filePath)
+		if err != nil {
+			return fmt.Errorf("failed to read file: %w", err)
+		}
+		text = string(data)
+
+		// Detect language and set config
+		lang := detectLanguageFromFlag(text)
+		config.Language = lang
+
+		if lang == model.LangJapanese {
+			config.StopWords = service.DefaultStopWordsJapanese
+		} else {
+			config.StopWords = service.DefaultStopWordsEnglish
+		}
+	} else if flagJSON {
+		return fmt.Errorf("--json mode requires a text file argument")
 	}
+
+	// Add custom stopwords
 	if flagStopwords != "" {
 		for _, w := range strings.Split(flagStopwords, ",") {
 			w = strings.TrimSpace(w)
@@ -87,15 +102,6 @@ func runRoot(cmd *cobra.Command, args []string) error {
 			}
 		}
 	}
-
-	// Create tokenizer
-	tokenizer, err := createTokenizer(lang)
-	if err != nil {
-		return fmt.Errorf("failed to create tokenizer: %w", err)
-	}
-
-	// Create analyzer
-	analyzer := graphanalyzer.NewAnalyzer()
 
 	// JSON mode: run pipeline and output
 	if flagJSON {
@@ -129,14 +135,18 @@ func runRoot(cmd *cobra.Command, args []string) error {
 	url := fmt.Sprintf("http://localhost:%d", port)
 	fmt.Fprintf(os.Stderr, "Philograph server running at %s\n", url)
 
-	// Auto-analyze uploaded file
-	go func() {
-		if _, err := session.Analyze(context.Background(), text); err != nil {
-			slog.Error("initial analysis failed", "error", err)
-		} else {
-			slog.Info("initial analysis complete")
-		}
-	}()
+	// Auto-analyze if file was provided
+	if text != "" {
+		go func() {
+			if _, err := session.Analyze(context.Background(), text); err != nil {
+				slog.Error("initial analysis failed", "error", err)
+			} else {
+				slog.Info("initial analysis complete")
+			}
+		}()
+	} else {
+		fmt.Fprintf(os.Stderr, "No input file specified. Upload a file via the browser to start analysis.\n")
+	}
 
 	// Open browser
 	if !flagSkipBrowser {
@@ -157,11 +167,13 @@ func detectLanguageFromFlag(text string) model.Language {
 	}
 }
 
-func createTokenizer(lang model.Language) (port.Tokenizer, error) {
-	if lang == model.LangJapanese {
-		return kagometok.NewTokenizer()
+func createAutoTokenizer() (port.Tokenizer, error) {
+	ja, err := kagometok.NewTokenizer()
+	if err != nil {
+		return nil, err
 	}
-	return whitespace.NewTokenizer(), nil
+	en := whitespace.NewTokenizer()
+	return autotokenizer.NewAutoTokenizer(ja, en), nil
 }
 
 func openBrowser(url string) {
