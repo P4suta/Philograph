@@ -24,6 +24,13 @@ header {
 header h1 { font-size: 1.2rem; color: var(--accent); }
 #status { font-size: 0.85rem; color: var(--text-secondary); }
 
+#search-input {
+    padding: 0.35rem 0.6rem; width: 200px; border: 1px solid var(--border);
+    border-radius: 4px; background: var(--bg-tertiary); color: var(--text-primary);
+    font-size: 0.85rem; outline: none;
+}
+#search-input:focus { border-color: var(--accent); }
+
 main { flex: 1; display: flex; overflow: hidden; }
 
 #sidebar {
@@ -74,3 +81,9 @@ button:hover { background: var(--accent-hover); }
 #upload-form { display: flex; flex-direction: column; gap: 0.5rem; }
 
 #controls-section button { margin-top: 0.3rem; width: 100%; }
+
+.adjacent-item {
+    cursor: pointer; padding: 0.2rem 0.4rem; border-radius: 3px;
+    font-size: 0.85rem; list-style: none;
+}
+.adjacent-item:hover { background: var(--bg-tertiary); }

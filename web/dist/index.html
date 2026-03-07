@@ -9,6 +9,7 @@
 <body>
     <header id="header">
         <h1>Philograph</h1>
+        <input type="text" id="search-input" placeholder="Search node..." />
         <span id="status">Ready</span>
     </header>
     <main>
@@ -16,7 +17,7 @@
             <section id="upload-section">
                 <h2>Upload Text</h2>
                 <form id="upload-form">
-                    <input type="file" id="file-input" accept=".txt" />
+                    <input type="file" id="file-input" accept=".txt,.md,.text" />
                     <button type="submit" id="analyze-btn">Analyze</button>
                 </form>
                 <div id="progress-bar-container" hidden>
@@ -47,6 +48,8 @@
             <dl id="node-detail"></dl>
         </aside>
     </main>
+    <script src="/vendor/graphology.min.js"></script>
+    <script src="/vendor/sigma.min.js"></script>
     <script type="module" src="/js/app.js"></script>
 </body>
 </html>
