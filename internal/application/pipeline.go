@@ -32,11 +32,35 @@ func NewPipeline(tokenizer port.Tokenizer, analyzer service.GraphAnalyzer, liste
 	}
 }
 
+// LanguageAware はTokenizerに対して言語を動的に設定可能にするインターフェース。
+type LanguageAware interface {
+	SetLanguage(lang model.Language)
+}
+
 // Run は分析パイプラインを実行する。
 func (p *Pipeline) Run(ctx context.Context, text string, config model.AnalysisConfig) (*PipelineResult, error) {
 	text = strings.TrimSpace(text)
 	if text == "" {
 		return nil, ErrEmptyText
+	}
+
+	// Auto-detect language if not set
+	if config.Language == model.LangUnknown {
+		config.Language = model.DetectLanguage(text)
+	}
+
+	// Set default stopwords if empty
+	if len(config.StopWords) == 0 {
+		if config.Language == model.LangJapanese {
+			config.StopWords = service.DefaultStopWordsJapanese
+		} else {
+			config.StopWords = service.DefaultStopWordsEnglish
+		}
+	}
+
+	// Notify language-aware tokenizers
+	if la, ok := p.tokenizer.(LanguageAware); ok {
+		la.SetLanguage(config.Language)
 	}
 
 	// Step 1: Sentence split
