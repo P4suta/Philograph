@@ -102,3 +102,6 @@ button:hover { background: var(--accent-hover); }
     display: inline-block; width: 14px; height: 14px;
     border-radius: 3px; flex-shrink: 0;
 }
+
+#stats-detail dt { font-weight: bold; font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.5rem; }
+#stats-detail dd { font-size: 0.9rem; margin-left: 0; }
