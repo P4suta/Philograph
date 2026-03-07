@@ -1,9 +1,11 @@
 // WebSocket client for progress notifications
 let ws = null;
 let onProgress = null;
+let onComplete = null;
 
-export function initWebSocket(progressCallback) {
+export function initWebSocket(progressCallback, completeCallback) {
     onProgress = progressCallback;
+    onComplete = completeCallback || null;
     connect();
 }
 
@@ -16,6 +18,9 @@ function connect() {
             const data = JSON.parse(event.data);
             if (onProgress) {
                 onProgress(data.percentage, data.message);
+            }
+            if (data.stage === 'complete' && onComplete) {
+                onComplete();
             }
         } catch (e) {
             console.error('WS parse error:', e);

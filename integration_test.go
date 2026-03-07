@@ -57,6 +57,37 @@ func TestIntegration_EnglishPipeline(t *testing.T) {
 	assert.NotEmpty(t, exported["nodes"])
 }
 
+func TestIntegration_MarkdownPipeline(t *testing.T) {
+	data, err := os.ReadFile("testdata/english_sample.md")
+	require.NoError(t, err)
+
+	tok := whitespace.NewTokenizer()
+	analyzer := graphanalyzer.NewAnalyzer()
+	pipeline := application.NewPipeline(tok, analyzer, nil)
+
+	config := model.DefaultConfig()
+	config.Language = model.LangEnglish
+	config.MinFrequency = 2
+	config.MinCooccurrence = 1
+
+	result, err := pipeline.Run(context.Background(), string(data), config)
+	require.NoError(t, err)
+
+	assert.True(t, result.Graph.NodeCount() > 0, "should have nodes from markdown input")
+	assert.True(t, result.Graph.EdgeCount() > 0, "should have edges from markdown input")
+
+	// Verify markdown syntax tokens (e.g. #, *, >) are not present as nodes
+	for _, n := range result.Graph.Nodes {
+		assert.NotEqual(t, "#", n.Label, "markdown heading marker should not be a node")
+		assert.NotEqual(t, "##", n.Label, "markdown heading marker should not be a node")
+		assert.NotEqual(t, "**", n.Label, "markdown bold marker should not be a node")
+		assert.NotEqual(t, "*", n.Label, "markdown italic marker should not be a node")
+		assert.NotEqual(t, ">", n.Label, "markdown blockquote marker should not be a node")
+		assert.NotEqual(t, "---", n.Label, "markdown horizontal rule should not be a node")
+		assert.NotEqual(t, "-", n.Label, "markdown list marker should not be a node")
+	}
+}
+
 func TestIntegration_JapanesePipeline(t *testing.T) {
 	data, err := os.ReadFile("testdata/japanese_sample.txt")
 	require.NoError(t, err)

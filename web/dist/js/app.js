@@ -11,6 +11,8 @@ const progressBar = document.getElementById('progress-bar');
 const progressText = document.getElementById('progress-text');
 const controlsSection = document.getElementById('controls-section');
 
+let analysisStartTime = null;
+
 function setStatus(text) {
     statusEl.textContent = text;
 }
@@ -29,6 +31,7 @@ async function handleUpload(e) {
     const file = fileInput.files[0];
     if (!file) return;
 
+    analysisStartTime = performance.now();
     setStatus('Analyzing...');
     const formData = new FormData();
     formData.append('file', file);
@@ -54,12 +57,49 @@ async function loadResult() {
         if (!res.ok) return;
         const graph = await res.json();
         initGraph(graph);
+        updateStats(graph);
     } catch (err) {
         console.error('Failed to load result:', err);
     }
 }
 
+function updateStats(graphData) {
+    const section = document.getElementById('stats-section');
+    const detail = document.getElementById('stats-detail');
+    if (!section || !detail) return;
+
+    const nodeCount = graphData.Nodes?.length || 0;
+    const edgeCount = graphData.Edges?.length || 0;
+
+    const communities = new Set();
+    if (graphData.Nodes) {
+        graphData.Nodes.forEach(n => communities.add(n.CommunityID));
+    }
+
+    let elapsed = '—';
+    if (analysisStartTime) {
+        const ms = performance.now() - analysisStartTime;
+        elapsed = ms < 1000 ? `${Math.round(ms)}ms` : `${(ms / 1000).toFixed(1)}s`;
+    }
+
+    detail.innerHTML = `
+        <dt>Nodes</dt><dd>${nodeCount}</dd>
+        <dt>Edges</dt><dd>${edgeCount}</dd>
+        <dt>Communities</dt><dd>${communities.size}</dd>
+        <dt>Processing Time</dt><dd>${elapsed}</dd>
+    `;
+    section.hidden = false;
+}
+
+async function onAnalysisComplete() {
+    controlsSection.hidden = false;
+    await loadResult();
+}
+
 // Initialize
 uploadForm.addEventListener('submit', handleUpload);
-initWebSocket(showProgress);
+initWebSocket(showProgress, onAnalysisComplete);
 initControls(loadResult, setStatus);
+
+// Try to load existing result (for CLI-initiated analysis)
+loadResult();
